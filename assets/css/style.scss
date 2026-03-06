@@ -1,165 +1,249 @@
 ---
 ---
 
-@import "{{ site.theme }}";
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;500;600&display=swap");
+
+:root {
+  --paper: #f4f4f2;
+  --panel: #fbfbfa;
+  --text: #1d2d40;
+  --muted: #576679;
+  --accent: #134c83;
+  --line: #d8dde5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
 
 body {
-  background: #f6f5f2;
-  color: #1d232b;
-  font-family: "Palatino Linotype", Palatino, "Book Antiqua", serif;
-  line-height: 1.65;
+  margin: 0;
+  background: radial-gradient(circle at top left, #f8f8f5, var(--paper) 35%);
+  color: var(--text);
+  font-family: "Source Serif 4", Georgia, serif;
+  line-height: 1.75;
 }
 
 a {
-  color: #3b5b7a;
+  color: var(--accent);
 }
 
 a:hover,
 a:focus {
-  color: #24415c;
+  color: #0f3c67;
 }
 
-header h1,
-h1,
-h2,
-h3 {
-  color: #1d232b;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  letter-spacing: 0.01em;
+.page-shell {
+  width: min(1240px, calc(100% - 2.5rem));
+  margin: 2rem auto 2.8rem;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 2rem;
 }
 
-.wrapper {
-  width: min(960px, calc(100% - 2.5rem));
+.profile-sidebar {
+  position: sticky;
+  top: 1.4rem;
+  align-self: start;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.6rem 1.4rem;
+  text-align: center;
 }
 
-section {
-  width: 100%;
-  float: none;
-  border-left: none;
-  border-right: none;
-  margin-top: 0;
-  padding-top: 0;
+.profile-image {
+  width: 132px;
+  height: 132px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid #cfd7e1;
 }
 
-header {
-  width: 100%;
-  float: none;
-  position: static;
-  margin-bottom: 1rem;
-  padding-bottom: 0;
+.profile-name {
+  margin: 1rem 0 0.25rem;
+  color: var(--accent);
+  font-family: "Playfair Display", "Times New Roman", serif;
+  font-size: 2.1rem;
+  line-height: 1.1;
 }
 
-header p {
-  color: #4b5563;
+.profile-role {
+  margin: 0.4rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 1.02rem;
 }
 
-.hero {
-  margin-bottom: 1.2rem;
+.profile-email {
+  margin: 0.7rem 0 1rem;
+  font-size: 0.96rem;
 }
 
-.hero h1 {
-  margin-bottom: 0.4rem;
-}
-
-.lead {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: #364152;
-}
-
-.hero-cta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 0.4rem;
-  margin-bottom: 0;
-}
-
-.cta-button {
-  display: inline-block;
-  border: 1px solid #3b5b7a;
-  padding: 0.35rem 0.7rem;
-  border-radius: 0.35rem;
+.profile-email a {
   text-decoration: none;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 0.92rem;
-  background: #3b5b7a;
-  color: #f6f5f2;
 }
 
-.cta-button:hover,
-.cta-button:focus {
-  background: #24415c;
-  color: #f6f5f2;
+.profile-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
 }
 
-.cta-button.cta-secondary {
-  background: transparent;
-  color: #3b5b7a;
+.profile-links a {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 1.12rem;
+  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
 }
 
-.cta-button.cta-secondary:hover,
-.cta-button.cta-secondary:focus {
-  background: #e9edf2;
-  color: #24415c;
+.profile-links a:hover,
+.profile-links a:focus {
+  transform: translateY(-1px);
+  background: #eef3f9;
+  border-color: #c4d1e0;
+}
+
+.content-area {
+  min-width: 0;
 }
 
 .section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1rem;
-  padding: 0.6rem 0 1rem;
-  margin: 0 0 1.3rem;
-  border-top: 1px solid #d9dde3;
-  border-bottom: 1px solid #d9dde3;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 0.9rem;
+  gap: 0.55rem 0.75rem;
+  padding: 0.82rem;
+  margin: 0 0 1rem;
+  background: rgba(244, 244, 242, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 
 .section-nav a {
   text-decoration: none;
-  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.25rem 0.62rem;
+  font-size: 0.92rem;
+  color: #24405e;
 }
 
-h2 {
-  margin-top: 2rem;
+.section-nav a:hover,
+.section-nav a:focus {
+  border-color: #c7d3e0;
+  background: #ecf2f8;
 }
 
-h3 {
-  margin-top: 1.4rem;
+.panel-stack {
+  display: grid;
+  gap: 1rem;
 }
 
-ul {
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.7rem;
+  color: var(--accent);
+  font-family: "Playfair Display", "Times New Roman", serif;
+  font-size: 2rem;
+  line-height: 1.12;
+}
+
+.panel h3 {
+  margin: 1.2rem 0 0.5rem;
+  color: #173c62;
+  font-size: 1.28rem;
+}
+
+.panel p {
+  margin: 0.45rem 0 0.85rem;
+}
+
+.panel ul {
+  margin: 0.2rem 0 0.8rem;
   padding-left: 1.2rem;
 }
 
-li {
-  margin-bottom: 0.45rem;
+.panel li {
+  margin-bottom: 0.3rem;
 }
 
-footer {
-  width: 100%;
-  float: none;
-}
-
-@media (max-width: 960px) {
-  .wrapper {
-    width: calc(100% - 2rem);
-  }
-}
-
-@media (max-width: 480px) {
-  .wrapper {
-    width: calc(100% - 1.2rem);
+@media (max-width: 1020px) {
+  .page-shell {
+    width: calc(100% - 1.5rem);
+    margin: 1rem auto 1.6rem;
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
-  .hero h1 {
-    font-size: 1.8rem;
+  .profile-sidebar {
+    position: static;
+    text-align: left;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 0.95rem;
+    align-items: center;
+  }
+
+  .profile-image {
+    width: 110px;
+    height: 110px;
+  }
+
+  .profile-name,
+  .profile-role,
+  .profile-email {
+    margin-left: 0;
+  }
+
+  .profile-links {
+    justify-content: flex-start;
+    grid-column: 1 / -1;
   }
 
   .section-nav {
-    gap: 0.5rem 0.8rem;
-    font-size: 0.86rem;
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-sidebar {
+    display: block;
+    text-align: center;
+  }
+
+  .profile-name {
+    font-size: 1.8rem;
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  .panel h2 {
+    font-size: 1.75rem;
   }
 }
 
