@@ -1,15 +1,18 @@
-# Personal Website (GitHub Pages + Jekyll Theme)
+# Personal Website (GitHub Pages + Jekyll)
 
 This site uses GitHub Pages' native Jekyll build with a custom two-column layout:
-- left sidebar: profile image + icon links
-- right column: section panels generated from `main.md`
+- left sidebar: profile image, page navigation, and social links
+- right column: the content of the current page
 
 ## Edit content
 
-1. Update [`main.md`](./main.md) for all page sections.
-2. Update [`index.md`](./index.md) if you want to change sidebar links or profile text.
-3. Replace `ressources/profil.png` for a new portrait.
-4. Replace `ressources/CV_Olivier_Clerc.pdf` when your CV changes.
+1. Update [`main.md`](./main.md) for the homepage sections: About, Current Work, and Previous Research.
+2. Update [`publications.md`](./publications.md) for publications.
+3. Update [`teaching.md`](./teaching.md) for teaching activities.
+4. Update [`other-stuff.md`](./other-stuff.md) for personal projects and interests.
+5. Update [`_layouts/default.html`](./_layouts/default.html) if you want to change the sidebar links or social icons.
+6. Replace `ressources/profil.png` for a new portrait.
+7. Replace `ressources/CV_Olivier_Clerc.pdf` when your CV changes.
 
 ## Publish on GitHub Pages
 
