@@ -1,0 +1,165 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+body {
+  background: #f6f5f2;
+  color: #1d232b;
+  font-family: "Palatino Linotype", Palatino, "Book Antiqua", serif;
+  line-height: 1.65;
+}
+
+a {
+  color: #3b5b7a;
+}
+
+a:hover,
+a:focus {
+  color: #24415c;
+}
+
+header h1,
+h1,
+h2,
+h3 {
+  color: #1d232b;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.wrapper {
+  width: min(960px, calc(100% - 2.5rem));
+}
+
+section {
+  width: 100%;
+  float: none;
+  border-left: none;
+  border-right: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+header {
+  width: 100%;
+  float: none;
+  position: static;
+  margin-bottom: 1rem;
+  padding-bottom: 0;
+}
+
+header p {
+  color: #4b5563;
+}
+
+.hero {
+  margin-bottom: 1.2rem;
+}
+
+.hero h1 {
+  margin-bottom: 0.4rem;
+}
+
+.lead {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #364152;
+}
+
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.4rem;
+  margin-bottom: 0;
+}
+
+.cta-button {
+  display: inline-block;
+  border: 1px solid #3b5b7a;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.35rem;
+  text-decoration: none;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 0.92rem;
+  background: #3b5b7a;
+  color: #f6f5f2;
+}
+
+.cta-button:hover,
+.cta-button:focus {
+  background: #24415c;
+  color: #f6f5f2;
+}
+
+.cta-button.cta-secondary {
+  background: transparent;
+  color: #3b5b7a;
+}
+
+.cta-button.cta-secondary:hover,
+.cta-button.cta-secondary:focus {
+  background: #e9edf2;
+  color: #24415c;
+}
+
+.section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  padding: 0.6rem 0 1rem;
+  margin: 0 0 1.3rem;
+  border-top: 1px solid #d9dde3;
+  border-bottom: 1px solid #d9dde3;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 0.9rem;
+}
+
+.section-nav a {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+h2 {
+  margin-top: 2rem;
+}
+
+h3 {
+  margin-top: 1.4rem;
+}
+
+ul {
+  padding-left: 1.2rem;
+}
+
+li {
+  margin-bottom: 0.45rem;
+}
+
+footer {
+  width: 100%;
+  float: none;
+}
+
+@media (max-width: 960px) {
+  .wrapper {
+    width: calc(100% - 2rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .wrapper {
+    width: calc(100% - 1.2rem);
+  }
+
+  .hero h1 {
+    font-size: 1.8rem;
+  }
+
+  .section-nav {
+    gap: 0.5rem 0.8rem;
+    font-size: 0.86rem;
+  }
+}
+
