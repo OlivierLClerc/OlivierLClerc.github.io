@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page.title | default: site.title }}</title>
     <meta name="description" content="{{ site.description }}">
+    <script>
+      (function() {
+        var theme = "light";
+        try {
+          var savedTheme = localStorage.getItem("theme");
+          if (savedTheme === "light" || savedTheme === "dark") {
+            theme = savedTheme;
+          } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            theme = "dark";
+          }
+        } catch (error) {}
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -24,6 +38,10 @@
         <div class="sidebar-intro">
           <h1 class="sidebar-name"><a href="{{ '/' | relative_url }}">Olivier Clerc</a></h1>
           <p class="sidebar-role">Starting Researcher in AI and education at Inria Bordeaux</p>
+          <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+            <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i>
+            <span class="theme-toggle-label">Dark mode</span>
+          </button>
         </div>
 
         <nav class="sidebar-nav" aria-label="Site pages">
@@ -75,5 +93,35 @@
         </article>
       </main>
     </div>
+    <script>
+      (function() {
+        var root = document.documentElement;
+        var button = document.querySelector("[data-theme-toggle]");
+        if (!button) {
+          return;
+        }
+
+        var label = button.querySelector(".theme-toggle-label");
+
+        function updateThemeUi(theme) {
+          var isDark = theme === "dark";
+          button.setAttribute("aria-pressed", isDark ? "true" : "false");
+          if (label) {
+            label.textContent = isDark ? "Light mode" : "Dark mode";
+          }
+        }
+
+        updateThemeUi(root.getAttribute("data-theme") || "light");
+
+        button.addEventListener("click", function() {
+          var nextTheme = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+          root.setAttribute("data-theme", nextTheme);
+          updateThemeUi(nextTheme);
+          try {
+            localStorage.setItem("theme", nextTheme);
+          } catch (error) {}
+        });
+      })();
+    </script>
   </body>
 </html>
