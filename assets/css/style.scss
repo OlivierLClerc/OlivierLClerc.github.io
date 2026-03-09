@@ -5,13 +5,13 @@
 
 :root {
   color-scheme: dark;
-  --paper: #0e141a;
+  --paper: #0e1a0f;
   --panel: rgba(19, 27, 35, 0.84);
-  --text: #e4edf6;
+  --text: #e4f6ed;
   --muted: #9bb89c;
   --accent: #65be77;
   --line: #2e462d;
-  --soft: #17212b;
+  --soft: #172b1d;
 }
 
 * {
@@ -27,7 +27,7 @@ body {
   background:
     radial-gradient(circle at top left, rgba(81, 173, 79, 0.22), transparent 28%),
     radial-gradient(circle at bottom right, rgba(34, 103, 52, 0.18), transparent 30%),
-    linear-gradient(180deg, #121920 0%, var(--paper) 100%);
+    linear-gradient(180deg, #122015 0%, var(--paper) 100%);
   color: var(--text);
   font-family: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
   line-height: 1.68;
@@ -39,7 +39,7 @@ a {
 
 a:hover,
 a:focus {
-  color: #bfd9f5;
+  color: #c3f5bf;
 }
 
 .site-frame {
