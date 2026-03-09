@@ -25,8 +25,8 @@ html {
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(79, 122, 173, 0.22), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(34, 67, 103, 0.18), transparent 30%),
+    radial-gradient(circle at top left, rgba(81, 173, 79, 0.22), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(34, 103, 52, 0.18), transparent 30%),
     linear-gradient(180deg, #121920 0%, var(--paper) 100%);
   color: var(--text);
   font-family: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
@@ -120,7 +120,7 @@ a:focus {
 .sidebar-nav-link:hover,
 .sidebar-nav-link:focus {
   background: #1c2733;
-  border-color: #425467;
+  border-color: #426746;
   transform: translateX(2px);
 }
 
@@ -160,7 +160,7 @@ a:focus {
 .sidebar-socials a:focus {
   transform: translateY(-1px);
   background: #1c2733;
-  border-color: #425467;
+  border-color: #426746;
 }
 
 .page-main {
@@ -216,7 +216,7 @@ a:focus {
 
 .page-body h3 {
   margin: 1.5rem 0 0.55rem;
-  color: #b7d1ec;
+  color: #b7ecbb;
   font-family: "Manrope", "Helvetica Neue", Arial, sans-serif;
   font-weight: 600;
   letter-spacing: -0.02em;
