@@ -544,7 +544,6 @@ page_intro: A small rotating selection from the square images in the photo archi
       refreshButton.addEventListener("click", function() {
         appliedDivergence = clampDivergence(divergenceInput.value, pendingDivergence);
         pendingDivergence = appliedDivergence;
-        previousSignatureByMode[currentMode] = "";
         updateDivergenceState();
         renderGallery(clampCount(countInput.value, currentCount));
       });
