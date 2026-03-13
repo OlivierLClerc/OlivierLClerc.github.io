@@ -345,6 +345,53 @@ a:focus {
   margin-bottom: 1.35rem;
 }
 
+.gallery-control-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.9rem;
+  flex: 1 1 40rem;
+}
+
+.gallery-mode-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(20, 29, 38, 0.9);
+}
+
+.gallery-mode-button {
+  min-width: 5.7rem;
+  padding: 0.7rem 0.95rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.gallery-mode-button:hover,
+.gallery-mode-button:focus {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.gallery-mode-button.is-active {
+  background: var(--accent);
+  color: #0d141b;
+}
+
+.gallery-mode-button:disabled {
+  color: rgba(155, 184, 156, 0.42);
+  cursor: not-allowed;
+  transform: none;
+}
+
 .gallery-count-control {
   display: inline-flex;
   align-items: center;
@@ -360,6 +407,53 @@ a:focus {
 .gallery-count-control span {
   font-family: "Manrope", "Helvetica Neue", Arial, sans-serif;
   font-size: 0.96rem;
+}
+
+.gallery-divergence-control {
+  display: flex;
+  flex: 1 1 19rem;
+  min-width: 18rem;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(20, 29, 38, 0.9);
+  color: var(--text);
+}
+
+.gallery-divergence-control > span:first-child {
+  font-family: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.gallery-divergence-slider-wrap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.gallery-divergence-edge,
+.gallery-divergence-state {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.gallery-divergence-state {
+  min-height: 1rem;
+}
+
+.gallery-divergence-input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.gallery-divergence-input:focus {
+  outline: none;
 }
 
 .gallery-count-input {
@@ -534,10 +628,22 @@ a:focus {
     align-items: stretch;
   }
 
+  .gallery-control-cluster,
+  .gallery-mode-toggle,
   .gallery-count-control,
+  .gallery-divergence-control,
   .gallery-refresh-button {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .gallery-mode-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gallery-divergence-control {
+    min-width: 0;
   }
 
   .gallery-layout {

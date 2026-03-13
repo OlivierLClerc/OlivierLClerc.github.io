@@ -20,12 +20,15 @@ SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 SEED = 42
 DEFAULT_COUNT = 9
 ANALYSIS_SIZE = 128
+EMBEDDING_GAP = 6.0
+MODE_ORDER = ("color", "bw")
 
 
 @dataclass
 class PhotoMetadata:
     identifier: str
     src: str
+    photo_mode: str
     summary: dict[str, float]
     appearance_vector: np.ndarray
     color_vector: np.ndarray
@@ -48,7 +51,6 @@ def dct_signature(values: np.ndarray, *, size: int = 32, low_frequency: int = 8)
     normalized = np.asarray(resized, dtype=np.float32) / 255.0
     coefficients = dctn(normalized, type=2, norm="ortho")[:low_frequency, :low_frequency].reshape(-1)
 
-    # Drop the DC component and normalize the remaining low-frequency structure.
     coefficients = coefficients[1:]
     norm = float(np.linalg.norm(coefficients))
     if norm > 0:
@@ -91,8 +93,13 @@ def hue_channel(rgb: np.ndarray) -> np.ndarray:
     hue[green_mask] = ((blue[green_mask] - red[green_mask]) / delta[green_mask]) + 2.0
     hue[blue_mask] = ((red[blue_mask] - green[blue_mask]) / delta[blue_mask]) + 4.0
 
-    hue = (hue / 6.0) % 1.0
-    return hue.astype(np.float32)
+    return ((hue / 6.0) % 1.0).astype(np.float32)
+
+
+def determine_photo_mode(saturation: np.ndarray, channel_spread: np.ndarray) -> str:
+    mean_saturation = float(saturation.mean())
+    channel_spread_p95 = float(np.quantile(channel_spread, 0.95))
+    return "bw" if mean_saturation <= 0.05 and channel_spread_p95 <= 0.08 else "color"
 
 
 def extract_features(path: Path) -> PhotoMetadata:
@@ -106,12 +113,10 @@ def extract_features(path: Path) -> PhotoMetadata:
 
     value = rgb.max(axis=2)
     minimum = rgb.min(axis=2)
-    saturation = np.divide(value - minimum, value + 1e-6)
+    channel_spread = value - minimum
+    saturation = np.divide(channel_spread, value + 1e-6)
     hue = hue_channel(rgb)
 
-    gray_quantiles = np.quantile(grayscale, [0.1, 0.5, 0.9])
-    gray_histogram, _ = np.histogram(grayscale, bins=12, range=(0.0, 1.0), density=True)
-    saturation_histogram, _ = np.histogram(saturation, bins=8, range=(0.0, 1.0), density=True)
     hue_histogram, _ = np.histogram(
         hue,
         bins=12,
@@ -155,15 +160,6 @@ def extract_features(path: Path) -> PhotoMetadata:
             rgb_quantiles,
             np.asarray(
                 [
-                    grayscale.mean(),
-                    grayscale.std(),
-                    gray_quantiles[0],
-                    gray_quantiles[1],
-                    gray_quantiles[2],
-                    gray_quantiles[2] - gray_quantiles[0],
-                    saturation.mean(),
-                    saturation.std(),
-                    float(np.quantile(saturation, 0.9)),
                     gradient_magnitude.mean(),
                     gradient_magnitude.std(),
                     float(np.quantile(gradient_magnitude, 0.9)),
@@ -175,11 +171,8 @@ def extract_features(path: Path) -> PhotoMetadata:
                 ],
                 dtype=np.float32,
             ),
-            gray_histogram.astype(np.float32),
-            saturation_histogram.astype(np.float32),
             orientation_histogram.astype(np.float32),
             grid_means(grayscale),
-            grid_means(saturation),
             grid_means(gradient_magnitude),
         ]
     ).astype(np.float32)
@@ -192,8 +185,6 @@ def extract_features(path: Path) -> PhotoMetadata:
                 [
                     float(rgb_mean[0] - rgb_mean[2]),
                     float(rgb_mean[1] - rgb_mean[2]),
-                    float(saturation.mean()),
-                    float(np.quantile(saturation, 0.9)),
                 ],
                 dtype=np.float32,
             ),
@@ -210,6 +201,7 @@ def extract_features(path: Path) -> PhotoMetadata:
 
     dominant_hue_index = int(np.argmax(hue_histogram))
     dominant_hue_deg = ((dominant_hue_index + 0.5) / len(hue_histogram)) * 360.0
+    photo_mode = determine_photo_mode(saturation, channel_spread)
 
     summary = {
         "brightness": round(float(grayscale.mean()), 6),
@@ -228,6 +220,7 @@ def extract_features(path: Path) -> PhotoMetadata:
     return PhotoMetadata(
         identifier=path.name,
         src=f"/photos/{path.name}",
+        photo_mode=photo_mode,
         summary=summary,
         appearance_vector=appearance_vector,
         color_vector=color_vector,
@@ -314,8 +307,11 @@ def nearest_neighbor_ids(identifiers: list[str], points: np.ndarray) -> dict[str
 
 
 def select_default_neighbors(anchor_id: str, neighbor_map: dict[str, list[str]], max_count: int) -> list[str]:
+    if not anchor_id:
+        return []
+
     selection = [anchor_id]
-    selection.extend(neighbor_map[anchor_id][: max_count - 1])
+    selection.extend(neighbor_map.get(anchor_id, [])[: max_count - 1])
     return selection
 
 
@@ -325,21 +321,46 @@ def choose_default_anchor(identifiers: list[str], points: np.ndarray) -> str:
     return identifiers[int(np.argmin(centroid_distances))]
 
 
-def serialize_manifest(photos: Iterable[dict[str, object]]) -> dict[str, object]:
+def center_embedding(points: np.ndarray) -> np.ndarray:
+    return points - points.mean(axis=0, keepdims=True)
+
+
+def separate_mode_embeddings(mode_embeddings: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    adjusted = {mode: center_embedding(points.copy()) for mode, points in mode_embeddings.items()}
+
+    if "color" not in adjusted or "bw" not in adjusted:
+        return adjusted
+
+    color_points = adjusted["color"]
+    bw_points = adjusted["bw"]
+    color_shift = (-EMBEDDING_GAP / 2.0) - float(color_points[:, 0].max())
+    bw_shift = (EMBEDDING_GAP / 2.0) - float(bw_points[:, 0].min())
+    color_points[:, 0] += color_shift
+    bw_points[:, 0] += bw_shift
+    adjusted["color"] = color_points
+    adjusted["bw"] = bw_points
+    return adjusted
+
+
+def serialize_manifest(photos: Iterable[dict[str, object]], default_mode: str, modes_payload: dict[str, dict[str, object]]) -> dict[str, object]:
     return {
-        "version": 1,
+        "version": 2,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "seed": SEED,
+        "default_mode": default_mode,
         "feature_spec": {
             "resize": ANALYSIS_SIZE,
             "reducer": "UMAP",
-            "similarity_space": "Weighted feature space for neighbors, 2D UMAP for coordinates",
+            "similarity_space": "Weighted feature space for neighbors, 2D UMAP per photo mode with separated coordinates",
+            "descriptive_only": ["brightness", "contrast", "saturation"],
+            "photo_modes": {
+                "color": "Default color photographs and muted-but-not-grayscale images",
+                "bw": "Strict grayscale/near-grayscale photographs tagged from saturation and channel-spread thresholds",
+            },
             "components": [
                 "rgb_statistics",
-                "grayscale_histogram",
-                "saturation_histogram",
                 "edge_orientation_histogram",
-                "3x3 spatial grids for luminance, saturation, and edge energy",
+                "3x3 spatial grids for luminance and edge energy",
                 "symmetry and composition metrics",
                 "hue histogram",
                 "3x3 RGB color layout",
@@ -347,6 +368,7 @@ def serialize_manifest(photos: Iterable[dict[str, object]]) -> dict[str, object]
                 "edge DCT signature",
             ],
         },
+        "modes": modes_payload,
         "photos": list(photos),
     }
 
@@ -355,41 +377,83 @@ def main() -> None:
     photo_paths = load_photo_paths()
     photo_metadata = [extract_features(path) for path in photo_paths]
 
-    identifiers = [photo.identifier for photo in photo_metadata]
-    feature_matrix = combine_feature_groups(photo_metadata)
-    embedding = compute_embedding(feature_matrix)
-    neighbor_map = nearest_neighbor_ids(identifiers, feature_matrix)
+    photos_by_mode: dict[str, list[PhotoMetadata]] = {mode: [] for mode in MODE_ORDER}
+    for photo in photo_metadata:
+        photos_by_mode.setdefault(photo.photo_mode, []).append(photo)
 
-    default_anchor = choose_default_anchor(identifiers, embedding)
-    default_selection = select_default_neighbors(
-        default_anchor,
-        neighbor_map,
-        max_count=min(DEFAULT_COUNT, len(photo_metadata)),
-    )
+    neighbor_map: dict[str, list[str]] = {}
+    embedded_points_by_id: dict[str, np.ndarray] = {}
+    modes_payload: dict[str, dict[str, object]] = {}
+    mode_embeddings: dict[str, np.ndarray] = {}
+    mode_identifier_lists: dict[str, list[str]] = {}
+
+    for mode in MODE_ORDER:
+        mode_photos = photos_by_mode.get(mode, [])
+        identifiers = [photo.identifier for photo in mode_photos]
+        mode_identifier_lists[mode] = identifiers
+
+        if not mode_photos:
+            modes_payload[mode] = {
+                "count": 0,
+                "default_anchor": "",
+                "default_selection": [],
+            }
+            continue
+
+        feature_matrix = combine_feature_groups(mode_photos)
+        embedding = compute_embedding(feature_matrix)
+        mode_embeddings[mode] = embedding
+        neighbor_map.update(nearest_neighbor_ids(identifiers, feature_matrix))
+
+        default_anchor = choose_default_anchor(identifiers, embedding)
+        default_selection = select_default_neighbors(
+            default_anchor,
+            neighbor_map,
+            max_count=min(DEFAULT_COUNT, len(mode_photos)),
+        )
+        modes_payload[mode] = {
+            "count": len(mode_photos),
+            "default_anchor": default_anchor,
+            "default_selection": default_selection,
+        }
+
+    adjusted_embeddings = separate_mode_embeddings(mode_embeddings)
+
+    for mode, identifiers in mode_identifier_lists.items():
+        points = adjusted_embeddings.get(mode)
+        if points is None:
+            continue
+        for identifier, point in zip(identifiers, points):
+            embedded_points_by_id[identifier] = point
+
+    default_mode = "color" if modes_payload.get("color", {}).get("count", 0) > 0 else "bw"
 
     photos_payload = []
-    for photo, point in zip(photo_metadata, embedding):
+    for photo in photo_metadata:
+        point = embedded_points_by_id.get(photo.identifier, np.zeros(2, dtype=np.float32))
         photos_payload.append(
             {
                 "id": photo.identifier,
                 "src": photo.src,
+                "photo_mode": photo.photo_mode,
                 "x": round(float(point[0]), 6),
                 "y": round(float(point[1]), 6),
                 "summary": photo.summary,
-                "neighbors": neighbor_map[photo.identifier],
+                "neighbors": neighbor_map.get(photo.identifier, []),
             }
         )
 
-    manifest = serialize_manifest(photos_payload)
-    manifest["default_anchor"] = default_anchor
-    manifest["default_selection"] = default_selection
+    manifest = serialize_manifest(photos_payload, default_mode, modes_payload)
+    manifest["default_anchor"] = modes_payload[default_mode]["default_anchor"]
+    manifest["default_selection"] = modes_payload[default_mode]["default_selection"]
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     print(f"Analyzed {len(photo_metadata)} photos.")
     print(f"Wrote {OUTPUT_PATH.relative_to(ROOT)}")
-    print(f"Default anchor: {default_anchor}")
+    for mode in MODE_ORDER:
+        print(f"{mode}: {modes_payload[mode]['count']} photos")
 
 
 if __name__ == "__main__":
