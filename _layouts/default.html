@@ -10,55 +10,65 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
   </head>
-  <body>
-    <div class="site-frame">
+  <body{% if page.page_variant %} class="page--{{ page.page_variant }}"{% endif %}>
+    <div class="site-frame{% if page.page_variant %} site-frame--{{ page.page_variant }}{% endif %}">
       <aside class="sidebar">
-        <a class="sidebar-portrait-link" href="{{ '/' | relative_url }}" aria-label="Home">
-          <img
-            class="sidebar-portrait"
-            src="{{ '/ressources/profil.png' | relative_url }}"
-            alt="Portrait of Olivier Clerc"
-          >
-        </a>
+        {% if page.page_variant == "gallery-wide" %}
+          <button class="sidebar-toggle" type="button" data-gallery-sidebar-toggle aria-expanded="true">
+            <i class="fa-solid fa-panels-left-right" aria-hidden="true"></i>
+            <span class="sidebar-toggle-label">Reduce panel</span>
+          </button>
+        {% endif %}
 
-        <div class="sidebar-intro">
-          <h1 class="sidebar-name"><a href="{{ '/' | relative_url }}">Olivier Clerc</a></h1>
-          <p class="sidebar-role">Starting Researcher in AI and education at Inria Bordeaux</p>
-        </div>
+        <div class="sidebar-content">
+          <a class="sidebar-portrait-link" href="{{ '/' | relative_url }}" aria-label="Home">
+            <img
+              class="sidebar-portrait"
+              src="{{ '/ressources/profil.png' | relative_url }}"
+              alt="Portrait of Olivier Clerc"
+            >
+          </a>
 
-        <nav class="sidebar-nav" aria-label="Site pages">
-          <a class="sidebar-nav-link{% if page.nav_key == 'about' %} is-active{% endif %}" href="{{ '/' | relative_url }}">About</a>
-          <a class="sidebar-nav-link{% if page.nav_key == 'publications' %} is-active{% endif %}" href="{{ '/publications/' | relative_url }}">Publications</a>
-          <a class="sidebar-nav-link{% if page.nav_key == 'teaching' %} is-active{% endif %}" href="{{ '/teaching/' | relative_url }}">Teaching</a>
-          <a class="sidebar-nav-link{% if page.nav_key == 'other-stuff' %} is-active{% endif %}" href="{{ '/other-stuff/' | relative_url }}">Other Stuff</a>
-        </nav>
+          <div class="sidebar-intro">
+            <h1 class="sidebar-name"><a href="{{ '/' | relative_url }}">Olivier Clerc</a></h1>
+            <p class="sidebar-role">Starting Researcher in AI and education at Inria Bordeaux</p>
+          </div>
 
-        <div class="sidebar-divider" aria-hidden="true"></div>
+          <nav class="sidebar-nav" aria-label="Site pages">
+            <a class="sidebar-nav-link{% if page.nav_key == 'about' %} is-active{% endif %}" href="{{ '/' | relative_url }}">About</a>
+            <a class="sidebar-nav-link{% if page.nav_key == 'publications' %} is-active{% endif %}" href="{{ '/publications/' | relative_url }}">Publications</a>
+            <a class="sidebar-nav-link{% if page.nav_key == 'teaching' %} is-active{% endif %}" href="{{ '/teaching/' | relative_url }}">Teaching</a>
+            <a class="sidebar-nav-link{% if page.nav_key == 'gallery' %} is-active{% endif %}" href="{{ '/gallery/' | relative_url }}">Gallery</a>
+            <a class="sidebar-nav-link{% if page.nav_key == 'other-stuff' %} is-active{% endif %}" href="{{ '/other-stuff/' | relative_url }}">Other Stuff</a>
+          </nav>
 
-        <div class="sidebar-socials" aria-label="Social links">
-          <a href="{{ '/ressources/CV_Olivier_Clerc.pdf' | relative_url }}" aria-label="Curriculum Vitae">
-            <i class="fa-regular fa-file-lines"></i>
-          </a>
-          <a href="https://github.com/OlivierLClerc" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-            <i class="fa-brands fa-github"></i>
-          </a>
-          <a href="https://www.instagram.com/oli_clerc/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-            <i class="fa-brands fa-instagram"></i>
-          </a>
-          <a href="https://www.linkedin.com/in/olivier-clerc-592885150/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-            <i class="fa-brands fa-linkedin"></i>
-          </a>
-          <a href="https://www.researchgate.net/profile/Olivier-Clerc-2?ev=hdr_xprf" target="_blank" rel="noopener noreferrer" aria-label="ResearchGate">
-            <i class="fa-brands fa-researchgate"></i>
-          </a>
-          <a href="mailto:oclerc38@gmail.com" aria-label="Email">
-            <i class="fa-regular fa-envelope"></i>
-          </a>
+          <div class="sidebar-divider" aria-hidden="true"></div>
+
+          <div class="sidebar-socials" aria-label="Social links">
+            <a href="{{ '/ressources/CV_Olivier_Clerc.pdf' | relative_url }}" aria-label="Curriculum Vitae">
+              <i class="fa-regular fa-file-lines"></i>
+            </a>
+            <a href="https://github.com/OlivierLClerc" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+              <i class="fa-brands fa-github"></i>
+            </a>
+            <a href="https://www.instagram.com/oli_clerc/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+              <i class="fa-brands fa-instagram"></i>
+            </a>
+            <a href="https://www.linkedin.com/in/olivier-clerc-592885150/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+              <i class="fa-brands fa-linkedin"></i>
+            </a>
+            <a href="https://www.researchgate.net/profile/Olivier-Clerc-2?ev=hdr_xprf" target="_blank" rel="noopener noreferrer" aria-label="ResearchGate">
+              <i class="fa-brands fa-researchgate"></i>
+            </a>
+            <a href="mailto:oclerc38@gmail.com" aria-label="Email">
+              <i class="fa-regular fa-envelope"></i>
+            </a>
+          </div>
         </div>
       </aside>
 
-      <main class="page-main">
-        <article class="page-panel">
+      <main class="page-main{% if page.page_variant %} page-main--{{ page.page_variant }}{% endif %}">
+        <article class="page-panel{% if page.page_variant %} page-panel--{{ page.page_variant }}{% endif %}">
           {% if page.show_page_heading %}
             <header class="page-header">
               <p class="page-kicker">{{ page.page_kicker | default: "Page" }}</p>
