@@ -78,6 +78,7 @@ Then update the bucket contents:
 ```powershell
 rclone sync .\photos r2:photos/photos --exclude "archive/**" --dry-run
 rclone sync .\photos r2:photos/photos --exclude "archive/**"
+
 ```
 
 Use `--dry-run` first to preview which files would be uploaded, replaced, or deleted without changing the bucket.

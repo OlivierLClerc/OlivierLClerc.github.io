@@ -85,27 +85,63 @@ page_intro: A small rotating selection from the square images in the photo archi
           data-gallery-count
         >
       </label>
-      <label class="gallery-divergence-control" for="gallery-divergence-input">
-        <span>Divergence</span>
-        <div class="gallery-divergence-slider-wrap">
-          <span class="gallery-divergence-edge">Close</span>
+      <div class="gallery-slider-control{% unless default_mode_data.default_color_enabled %} is-disabled{% endunless %}" data-gallery-color-control>
+        <div class="gallery-slider-head">
+          <span data-gallery-color-label>{% if default_mode == 'bw' %}Tone Proximity{% else %}Color Proximity{% endif %}</span>
+          <button
+            class="gallery-scale-toggle{% if default_mode_data.default_color_enabled %} is-active{% endif %}"
+            type="button"
+            data-gallery-color-toggle
+            aria-pressed="{% if default_mode_data.default_color_enabled %}true{% else %}false{% endif %}"
+          >
+            {% if default_mode_data.default_color_enabled %}On{% else %}Off{% endif %}
+          </button>
+        </div>
+        <div class="gallery-slider-wrap">
+          <span class="gallery-slider-edge">Loose</span>
           <input
-            id="gallery-divergence-input"
-            class="gallery-divergence-input"
+            id="gallery-color-proximity-input"
+            class="gallery-slider-input"
             type="range"
             min="0"
             max="100"
             step="1"
-            value="0"
-            data-gallery-divergence
-            aria-describedby="gallery-divergence-state"
+            value="{{ default_mode_data.default_color_proximity | default: 70 }}"
+            data-gallery-color-proximity
+            {% unless default_mode_data.default_color_enabled %}disabled{% endunless %}
           >
-          <span class="gallery-divergence-edge">Wide</span>
+          <span class="gallery-slider-edge">Tight</span>
         </div>
-        <span class="gallery-divergence-state" id="gallery-divergence-state" data-gallery-divergence-state>
-          Applies on refresh
-        </span>
-      </label>
+      </div>
+      <div class="gallery-slider-control{% unless default_mode_data.default_geometry_enabled %} is-disabled{% endunless %}" data-gallery-geometry-control>
+        <div class="gallery-slider-head">
+          <span>Geometry Proximity</span>
+          <button
+            class="gallery-scale-toggle{% if default_mode_data.default_geometry_enabled %} is-active{% endif %}"
+            type="button"
+            data-gallery-geometry-toggle
+            aria-pressed="{% if default_mode_data.default_geometry_enabled %}true{% else %}false{% endif %}"
+          >
+            {% if default_mode_data.default_geometry_enabled %}On{% else %}Off{% endif %}
+          </button>
+        </div>
+        <div class="gallery-slider-wrap">
+          <span class="gallery-slider-edge">Loose</span>
+          <input
+            id="gallery-geometry-proximity-input"
+            class="gallery-slider-input"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="{{ default_mode_data.default_geometry_proximity | default: 70 }}"
+            data-gallery-geometry-proximity
+            {% unless default_mode_data.default_geometry_enabled %}disabled{% endunless %}
+          >
+          <span class="gallery-slider-edge">Tight</span>
+        </div>
+      </div>
+      <span class="gallery-control-state" data-gallery-control-state>Refresh picks a new anchor</span>
     </div>
     <button class="gallery-refresh-button" type="button" data-gallery-refresh>
       <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
@@ -143,15 +179,21 @@ page_intro: A small rotating selection from the square images in the photo archi
       var sidebarToggle = document.querySelector("[data-gallery-sidebar-toggle]");
       var grid = document.querySelector("[data-gallery-grid]");
       var countInput = document.querySelector("[data-gallery-count]");
-      var divergenceInput = document.querySelector("[data-gallery-divergence]");
-      var divergenceState = document.querySelector("[data-gallery-divergence-state]");
+      var colorProximityInput = document.querySelector("[data-gallery-color-proximity]");
+      var geometryProximityInput = document.querySelector("[data-gallery-geometry-proximity]");
+      var colorControl = document.querySelector("[data-gallery-color-control]");
+      var geometryControl = document.querySelector("[data-gallery-geometry-control]");
+      var colorToggleButton = document.querySelector("[data-gallery-color-toggle]");
+      var geometryToggleButton = document.querySelector("[data-gallery-geometry-toggle]");
+      var controlStateLabel = document.querySelector("[data-gallery-control-state]");
+      var colorLabel = document.querySelector("[data-gallery-color-label]");
       var refreshButton = document.querySelector("[data-gallery-refresh]");
       var modeButtons = Array.from(document.querySelectorAll("[data-gallery-mode]"));
       var dataElement = document.getElementById("gallery-photo-data");
       var siteBaseUrl = {{ site.baseurl | default: "" | jsonify }} || "";
       var photoAssetOrigin = ({{ site.photo_asset_origin | default: "" | jsonify }} || "").replace(/\/+$/, "");
 
-      if (!grid || !countInput || !divergenceInput || !refreshButton || !modeButtons.length || !dataElement) {
+      if (!grid || !countInput || !colorProximityInput || !geometryProximityInput || !colorToggleButton || !geometryToggleButton || !refreshButton || !modeButtons.length || !dataElement) {
         return;
       }
 
@@ -166,7 +208,8 @@ page_intro: A small rotating selection from the square images in the photo archi
         grid.innerHTML = "<p class=\"gallery-empty\">No photos available yet.</p>";
         refreshButton.disabled = true;
         countInput.disabled = true;
-        divergenceInput.disabled = true;
+        colorProximityInput.disabled = true;
+        geometryProximityInput.disabled = true;
         return;
       }
 
@@ -207,9 +250,50 @@ page_intro: A small rotating selection from the square images in the photo archi
       }
 
       var currentCount = 1;
-      var appliedDivergence = 0;
-      var pendingDivergence = 0;
-      var previousSignatureByMode = { color: "", bw: "" };
+
+      function normalizeEnabled(rawValue, fallback) {
+        if (typeof rawValue === "boolean") {
+          return rawValue;
+        }
+        if (typeof rawValue === "string") {
+          return rawValue === "true";
+        }
+        if (typeof rawValue === "number") {
+          return rawValue !== 0;
+        }
+        return fallback;
+      }
+
+      function createShuffleSeed(mode) {
+        return [
+          mode,
+          Date.now().toString(36),
+          Math.random().toString(36).slice(2)
+        ].join("|");
+      }
+
+      var controlStateByMode = modeOrder.reduce(function(result, mode) {
+        var modeInfo = getModeInfo(mode);
+        var defaultColor = clampProximity(modeInfo.default_color_proximity, 70);
+        var defaultGeometry = clampProximity(modeInfo.default_geometry_proximity, 70);
+        var defaultColorEnabled = normalizeEnabled(modeInfo.default_color_enabled, true);
+        var defaultGeometryEnabled = normalizeEnabled(modeInfo.default_geometry_enabled, true);
+        result[mode] = {
+          appliedColor: defaultColor,
+          pendingColor: defaultColor,
+          appliedGeometry: defaultGeometry,
+          pendingGeometry: defaultGeometry,
+          appliedColorEnabled: defaultColorEnabled,
+          pendingColorEnabled: defaultColorEnabled,
+          appliedGeometryEnabled: defaultGeometryEnabled,
+          pendingGeometryEnabled: defaultGeometryEnabled,
+          anchorId: modeInfo.default_anchor || "",
+          signature: "",
+          shuffleSeed: mode + "|default",
+          initialized: false
+        };
+        return result;
+      }, {});
 
       function updateSidebarToggle(collapsed) {
         if (!sidebarToggle) {
@@ -229,7 +313,19 @@ page_intro: A small rotating selection from the square images in the photo archi
       }
 
       function getModeInfo(mode) {
-        return galleryModes[mode] || { count: 0, default_anchor: "", default_selection: [] };
+        return galleryModes[mode] || {
+          count: 0,
+          default_anchor: "",
+          default_selection: [],
+          default_color_proximity: 70,
+          default_geometry_proximity: 70,
+          default_color_enabled: true,
+          default_geometry_enabled: true
+        };
+      }
+
+      function getModeControlState(mode) {
+        return controlStateByMode[mode];
       }
 
       function getModeMaxCount(mode) {
@@ -247,7 +343,7 @@ page_intro: A small rotating selection from the square images in the photo archi
         return Math.max(1, Math.min(modeMax, parsedValue));
       }
 
-      function clampDivergence(rawValue, fallback) {
+      function clampProximity(rawValue, fallback) {
         var parsedValue = Number.parseInt(rawValue, 10);
         if (Number.isNaN(parsedValue)) {
           return fallback;
@@ -255,11 +351,17 @@ page_intro: A small rotating selection from the square images in the photo archi
         return Math.max(0, Math.min(100, parsedValue));
       }
 
-      function randomItem(items) {
-        if (!items.length) {
-          return null;
+      function strictnessWindowSize(modeCount, count, proximity) {
+        var totalNeighbors = Math.max(0, modeCount - 1);
+        var neighborCount = Math.max(0, count - 1);
+        if (totalNeighbors === 0 || neighborCount === 0) {
+          return 0;
         }
-        return items[Math.floor(Math.random() * items.length)];
+
+        var strictness = clampProximity(proximity, 70) / 100;
+        var windowFraction = 0.06 + Math.pow(1 - strictness, 2) * 0.44;
+        var windowSize = Math.round(windowFraction * totalNeighbors);
+        return Math.max(neighborCount, Math.min(totalNeighbors, windowSize));
       }
 
       function getSelectionSignature(items) {
@@ -276,17 +378,64 @@ page_intro: A small rotating selection from the square images in the photo archi
         });
       }
 
-      function updateDivergenceState() {
-        if (!divergenceState) {
+      function updateControlLabels() {
+        if (!colorLabel) {
+          return;
+        }
+        colorLabel.textContent = currentMode === "bw" ? "Tone Proximity" : "Color Proximity";
+      }
+
+      function setScaleToggleState(button, enabled) {
+        if (!button) {
           return;
         }
 
-        if (pendingDivergence === appliedDivergence) {
-          divergenceState.textContent = "Applies on refresh";
+        button.classList.toggle("is-active", enabled);
+        button.setAttribute("aria-pressed", enabled ? "true" : "false");
+        button.textContent = enabled ? "On" : "Off";
+      }
+
+      function updateControlStateMessage() {
+        if (!controlStateLabel) {
           return;
         }
 
-        divergenceState.textContent = "Pending: " + String(pendingDivergence) + "%";
+        var modeState = getModeControlState(currentMode);
+        var hasPendingChanges =
+          modeState.pendingColor !== modeState.appliedColor ||
+          modeState.pendingGeometry !== modeState.appliedGeometry ||
+          modeState.pendingColorEnabled !== modeState.appliedColorEnabled ||
+          modeState.pendingGeometryEnabled !== modeState.appliedGeometryEnabled;
+
+        if (hasPendingChanges) {
+          controlStateLabel.textContent = "Pending changes apply on refresh";
+          return;
+        }
+
+        if (!modeState.appliedColorEnabled && !modeState.appliedGeometryEnabled) {
+          controlStateLabel.textContent = "Refresh picks a new anchor and reseeds the random set";
+          return;
+        }
+
+        controlStateLabel.textContent = "Refresh picks a new anchor and rebuilds the distance ladder";
+      }
+
+      function syncControlInputsFromState() {
+        var modeState = getModeControlState(currentMode);
+        colorProximityInput.value = String(modeState.pendingColor);
+        geometryProximityInput.value = String(modeState.pendingGeometry);
+        colorProximityInput.disabled = !modeState.pendingColorEnabled;
+        geometryProximityInput.disabled = !modeState.pendingGeometryEnabled;
+        if (colorControl) {
+          colorControl.classList.toggle("is-disabled", !modeState.pendingColorEnabled);
+        }
+        if (geometryControl) {
+          geometryControl.classList.toggle("is-disabled", !modeState.pendingGeometryEnabled);
+        }
+        setScaleToggleState(colorToggleButton, modeState.pendingColorEnabled);
+        setScaleToggleState(geometryToggleButton, modeState.pendingGeometryEnabled);
+        updateControlLabels();
+        updateControlStateMessage();
       }
 
       function syncCountInput() {
@@ -294,13 +443,19 @@ page_intro: A small rotating selection from the square images in the photo archi
         if (modeMax <= 0) {
           grid.innerHTML = "<p class=\"gallery-empty\">No photos available in this mode.</p>";
           countInput.disabled = true;
-          divergenceInput.disabled = true;
+          colorProximityInput.disabled = true;
+          geometryProximityInput.disabled = true;
+          colorToggleButton.disabled = true;
+          geometryToggleButton.disabled = true;
           refreshButton.disabled = true;
           return false;
         }
 
         countInput.disabled = false;
-        divergenceInput.disabled = false;
+        colorToggleButton.disabled = false;
+        geometryToggleButton.disabled = false;
+        colorProximityInput.disabled = !getModeControlState(currentMode).pendingColorEnabled;
+        geometryProximityInput.disabled = !getModeControlState(currentMode).pendingGeometryEnabled;
         refreshButton.disabled = false;
         countInput.max = String(modeMax);
         currentCount = clampCount(countInput.value || currentCount, currentCount || modeMax);
@@ -308,82 +463,228 @@ page_intro: A small rotating selection from the square images in the photo archi
         return true;
       }
 
-      function buildSelection(anchorId, count, divergenceValue, mode) {
+      function sortCandidates(candidateIds, colorRank, geometryRank, colorNorm, geometryNorm) {
+        var uniqueIds = Array.from(new Set(candidateIds));
+        var maxColorNorm = Math.max(colorNorm, 1);
+        var maxGeometryNorm = Math.max(geometryNorm, 1);
+
+        return uniqueIds.sort(function(left, right) {
+          var leftHasColor = Object.prototype.hasOwnProperty.call(colorRank, left);
+          var rightHasColor = Object.prototype.hasOwnProperty.call(colorRank, right);
+          var leftHasGeometry = Object.prototype.hasOwnProperty.call(geometryRank, left);
+          var rightHasGeometry = Object.prototype.hasOwnProperty.call(geometryRank, right);
+          var leftHits = Number(leftHasColor) + Number(leftHasGeometry);
+          var rightHits = Number(rightHasColor) + Number(rightHasGeometry);
+
+          if (leftHits !== rightHits) {
+            return rightHits - leftHits;
+          }
+
+          var leftScore = (leftHasColor ? colorRank[left] / maxColorNorm : 1.35) + (leftHasGeometry ? geometryRank[left] / maxGeometryNorm : 1.35);
+          var rightScore = (rightHasColor ? colorRank[right] / maxColorNorm : 1.35) + (rightHasGeometry ? geometryRank[right] / maxGeometryNorm : 1.35);
+
+          if (leftScore !== rightScore) {
+            return leftScore - rightScore;
+          }
+
+          var leftBestRank = leftHasColor ? colorRank[left] : 1000000000;
+          if (leftHasGeometry) {
+            leftBestRank = Math.min(leftBestRank, geometryRank[left]);
+          }
+          var rightBestRank = rightHasColor ? colorRank[right] : 1000000000;
+          if (rightHasGeometry) {
+            rightBestRank = Math.min(rightBestRank, geometryRank[right]);
+          }
+
+          if (leftBestRank !== rightBestRank) {
+            return leftBestRank - rightBestRank;
+          }
+
+          return left.localeCompare(right);
+        });
+      }
+
+      function stableHash(text) {
+        var hash = 2166136261;
+
+        for (var index = 0; index < text.length; index += 1) {
+          hash ^= text.charCodeAt(index);
+          hash = Math.imul(hash, 16777619);
+        }
+
+        return hash >>> 0;
+      }
+
+      function stableShuffleIds(identifiers, seedText) {
+        return identifiers.slice().sort(function(left, right) {
+          var leftHash = stableHash(seedText + "|" + left);
+          var rightHash = stableHash(seedText + "|" + right);
+
+          if (leftHash !== rightHash) {
+            return leftHash - rightHash;
+          }
+
+          return left.localeCompare(right);
+        });
+      }
+
+      function evenlySpacedSelection(orderedIds, count) {
+        if (count <= 0 || !orderedIds.length) {
+          return [];
+        }
+
+        if (orderedIds.length <= count) {
+          return orderedIds.slice(0, count);
+        }
+
+        if (count === 1) {
+          return [orderedIds[0]];
+        }
+
+        var chosen = [];
+        var used = new Set();
+
+        for (var slot = 0; slot < count; slot += 1) {
+          var rawIndex = Math.round((slot * (orderedIds.length - 1)) / (count - 1));
+          var candidateIndex = rawIndex;
+
+          while (candidateIndex < orderedIds.length && used.has(orderedIds[candidateIndex])) {
+            candidateIndex += 1;
+          }
+
+          if (candidateIndex >= orderedIds.length) {
+            candidateIndex = rawIndex - 1;
+            while (candidateIndex >= 0 && used.has(orderedIds[candidateIndex])) {
+              candidateIndex -= 1;
+            }
+          }
+
+          if (candidateIndex < 0) {
+            continue;
+          }
+
+          chosen.push([candidateIndex, orderedIds[candidateIndex]]);
+          used.add(orderedIds[candidateIndex]);
+        }
+
+        return chosen
+          .sort(function(left, right) {
+            return left[0] - right[0];
+          })
+          .map(function(entry) {
+            return entry[1];
+          });
+      }
+
+      function buildSelection(anchorId, count, mode, settings) {
         var anchor = photoMap.get(anchorId);
         if (!anchor) {
           return [];
         }
 
         var modeIds = photoIdsByMode[mode] || [];
-        var chosenIds = [anchorId];
-        var usedIds = new Set(chosenIds);
-        var neighborCount = Math.max(0, count - 1);
-        var divergence = divergenceValue / 100;
-        var orderedNeighbors = Array.isArray(anchor.neighbors)
-          ? anchor.neighbors.filter(function(neighborId) {
-              var neighbor = photoMap.get(neighborId);
-              return neighbor && neighbor.photo_mode === mode && !usedIds.has(neighborId);
+        var boundedCount = Math.max(1, Math.min(count, modeIds.length));
+        if (boundedCount === 1) {
+          return [anchorId];
+        }
+
+        var modeSet = new Set(modeIds);
+        var neighborCount = boundedCount - 1;
+        var colorEnabled = settings.colorEnabled !== false;
+        var geometryEnabled = settings.geometryEnabled !== false;
+        var orderedColor = Array.isArray(anchor.color_neighbors)
+          ? anchor.color_neighbors.filter(function(identifier) {
+              return modeSet.has(identifier) && identifier !== anchorId;
+            })
+          : [];
+        var orderedGeometry = Array.isArray(anchor.geometry_neighbors)
+          ? anchor.geometry_neighbors.filter(function(identifier) {
+              return modeSet.has(identifier) && identifier !== anchorId;
             })
           : [];
 
-        if (neighborCount > 0 && orderedNeighbors.length > 0) {
-          if (divergence === 0) {
-            orderedNeighbors.slice(0, neighborCount).forEach(function(neighborId) {
-              chosenIds.push(neighborId);
-              usedIds.add(neighborId);
-            });
-          } else {
-            var maxRankWindow = orderedNeighbors.length;
-            var candidateWindow = Math.round(
-              neighborCount + (divergence * Math.max(0, maxRankWindow - neighborCount))
-            );
-            candidateWindow = Math.max(neighborCount, Math.min(maxRankWindow, candidateWindow));
-
-            var candidatePool = orderedNeighbors.slice(0, candidateWindow);
-
-            for (var segmentIndex = 0; segmentIndex < neighborCount; segmentIndex += 1) {
-              var segmentStart = Math.floor((segmentIndex * candidatePool.length) / neighborCount);
-              var segmentEnd = Math.floor(((segmentIndex + 1) * candidatePool.length) / neighborCount);
-              var segmentItems = candidatePool.slice(segmentStart, segmentEnd).filter(function(neighborId) {
-                return !usedIds.has(neighborId);
-              });
-              var chosenNeighborId = randomItem(segmentItems);
-
-              if (!chosenNeighborId) {
-                continue;
-              }
-
-              chosenIds.push(chosenNeighborId);
-              usedIds.add(chosenNeighborId);
-            }
-
-            candidatePool.forEach(function(neighborId) {
-              if (chosenIds.length >= count || usedIds.has(neighborId)) {
-                return;
-              }
-              chosenIds.push(neighborId);
-              usedIds.add(neighborId);
-            });
-          }
+        if (!colorEnabled && !geometryEnabled) {
+          return [anchorId].concat(
+            evenlySpacedSelection(
+              stableShuffleIds(
+                modeIds.filter(function(identifier) {
+                  return identifier !== anchorId;
+                }),
+                anchorId + "|" + (settings.shuffleSeed || "default")
+              ),
+              neighborCount
+            )
+          );
         }
 
-        orderedNeighbors.forEach(function(neighborId) {
-          if (chosenIds.length >= count || usedIds.has(neighborId)) {
-            return;
-          }
-          chosenIds.push(neighborId);
-          usedIds.add(neighborId);
+        if (colorEnabled && !geometryEnabled) {
+          return [anchorId].concat(
+            evenlySpacedSelection(
+              orderedColor.slice(0, strictnessWindowSize(modeIds.length, boundedCount, settings.colorProximity)),
+              neighborCount
+            )
+          );
+        }
+
+        if (geometryEnabled && !colorEnabled) {
+          return [anchorId].concat(
+            evenlySpacedSelection(
+              orderedGeometry.slice(0, strictnessWindowSize(modeIds.length, boundedCount, settings.geometryProximity)),
+              neighborCount
+            )
+          );
+        }
+
+        var colorWindowSize = strictnessWindowSize(modeIds.length, boundedCount, settings.colorProximity);
+        var geometryWindowSize = strictnessWindowSize(modeIds.length, boundedCount, settings.geometryProximity);
+        var colorWindow = orderedColor.slice(0, colorWindowSize);
+        var geometryWindow = orderedGeometry.slice(0, geometryWindowSize);
+        var colorWindowRank = {};
+        var geometryWindowRank = {};
+        var colorFullRank = {};
+        var geometryFullRank = {};
+
+        colorWindow.forEach(function(identifier, index) {
+          colorWindowRank[identifier] = index;
+        });
+        geometryWindow.forEach(function(identifier, index) {
+          geometryWindowRank[identifier] = index;
+        });
+        orderedColor.forEach(function(identifier, index) {
+          colorFullRank[identifier] = index;
+        });
+        orderedGeometry.forEach(function(identifier, index) {
+          geometryFullRank[identifier] = index;
         });
 
-        modeIds.forEach(function(photoId) {
-          if (chosenIds.length >= count || usedIds.has(photoId)) {
-            return;
-          }
-          chosenIds.push(photoId);
-          usedIds.add(photoId);
+        var coreCandidates = colorWindow.filter(function(identifier) {
+          return Object.prototype.hasOwnProperty.call(geometryWindowRank, identifier);
         });
+        var orderedCandidates = sortCandidates(coreCandidates, colorFullRank, geometryFullRank, orderedColor.length, orderedGeometry.length);
 
-        return chosenIds.slice(0, count);
+        if (orderedCandidates.length < neighborCount) {
+          orderedCandidates = sortCandidates(
+            colorWindow.concat(geometryWindow),
+            colorFullRank,
+            geometryFullRank,
+            orderedColor.length,
+            orderedGeometry.length
+          );
+        }
+
+        if (orderedCandidates.length < neighborCount) {
+          orderedCandidates = sortCandidates(
+            orderedColor.concat(orderedGeometry).concat(modeIds).filter(function(identifier) {
+              return identifier !== anchorId;
+            }),
+            colorFullRank,
+            geometryFullRank,
+            orderedColor.length,
+            orderedGeometry.length
+          );
+        }
+
+        return [anchorId].concat(evenlySpacedSelection(orderedCandidates, neighborCount));
       }
 
       function resolvePhotoSrc(photoPath) {
@@ -402,10 +703,16 @@ page_intro: A small rotating selection from the square images in the photo archi
         return siteBaseUrl + photoPath;
       }
 
-      function createTile(photoId) {
+      function createTile(photoId, isAnchor) {
         var photo = photoMap.get(photoId);
-        var tile = document.createElement("div");
-        tile.className = "gallery-tile";
+        var tile = document.createElement("button");
+        tile.type = "button";
+        tile.className = "gallery-tile gallery-tile-button";
+        tile.setAttribute("data-gallery-photo", photoId || "");
+
+        if (isAnchor) {
+          tile.classList.add("is-anchor");
+        }
 
         if (!photo) {
           return tile;
@@ -419,43 +726,8 @@ page_intro: A small rotating selection from the square images in the photo archi
         return tile;
       }
 
-      function randomAnchorId(mode) {
-        var modeIds = photoIdsByMode[mode] || [];
-        return modeIds[Math.floor(Math.random() * modeIds.length)];
-      }
-
-      function chooseSelection(count, divergenceValue, mode) {
-        var modeInfo = getModeInfo(mode);
-        var defaultSelection = Array.isArray(modeInfo.default_selection) ? modeInfo.default_selection.slice(0, count) : [];
-
-        if (!previousSignatureByMode[mode] && divergenceValue === 0 && defaultSelection.length === count) {
-          previousSignatureByMode[mode] = getSelectionSignature(defaultSelection);
-          return defaultSelection;
-        }
-
-        var selection = [];
-        var signature = "";
-        var tries = 0;
-
-        while (tries < 12) {
-          selection = buildSelection(randomAnchorId(mode), count, divergenceValue, mode);
-          signature = getSelectionSignature(selection);
-
-          if (signature !== previousSignatureByMode[mode] || (photoIdsByMode[mode] || []).length <= count) {
-            previousSignatureByMode[mode] = signature;
-            return selection;
-          }
-
-          tries += 1;
-        }
-
-        previousSignatureByMode[mode] = signature;
-        return selection;
-      }
-
-      function renderGallery(count) {
+      function renderGallery(count, selectedPhotos) {
         var layout = layoutMap[count] || layoutMap[9];
-        var selectedPhotos = chooseSelection(count, appliedDivergence, currentMode);
         var cursor = 0;
 
         grid.innerHTML = "";
@@ -468,7 +740,7 @@ page_intro: A small rotating selection from the square images in the photo archi
           row.dataset.columns = String(columns);
 
           for (var columnIndex = 0; columnIndex < columns; columnIndex += 1) {
-            row.appendChild(createTile(selectedPhotos[cursor]));
+            row.appendChild(createTile(selectedPhotos[cursor], cursor === 0));
             cursor += 1;
           }
 
@@ -479,25 +751,136 @@ page_intro: A small rotating selection from the square images in the photo archi
         currentCount = count;
       }
 
+      function getColorControlLabel(mode) {
+        return mode === "bw" ? "Tone Proximity" : "Color Proximity";
+      }
+
+      function randomAnchorId(mode) {
+        var modeIds = photoIdsByMode[mode] || [];
+        if (!modeIds.length) {
+          return "";
+        }
+        return modeIds[Math.floor(Math.random() * modeIds.length)];
+      }
+
+      function getAppliedSettings(modeState) {
+        return {
+          colorProximity: modeState.appliedColor,
+          geometryProximity: modeState.appliedGeometry,
+          colorEnabled: modeState.appliedColorEnabled,
+          geometryEnabled: modeState.appliedGeometryEnabled,
+          shuffleSeed: modeState.shuffleSeed
+        };
+      }
+
+      function deterministicSelectionForMode(mode, count) {
+        var modeInfo = getModeInfo(mode);
+        var modeState = getModeControlState(mode);
+        var modeIds = photoIdsByMode[mode] || [];
+        var boundedCount = Math.max(1, Math.min(count, modeIds.length));
+        var defaultSelection = Array.isArray(modeInfo.default_selection) ? modeInfo.default_selection.slice(0, boundedCount) : [];
+        var isDefaultState = !modeState.initialized &&
+          modeState.anchorId === (modeInfo.default_anchor || "") &&
+          modeState.appliedColor === clampProximity(modeInfo.default_color_proximity, 70) &&
+          modeState.appliedGeometry === clampProximity(modeInfo.default_geometry_proximity, 70) &&
+          modeState.appliedColorEnabled === normalizeEnabled(modeInfo.default_color_enabled, true) &&
+          modeState.appliedGeometryEnabled === normalizeEnabled(modeInfo.default_geometry_enabled, true);
+
+        if (isDefaultState && defaultSelection.length === boundedCount) {
+          modeState.signature = getSelectionSignature(defaultSelection);
+          modeState.anchorId = defaultSelection[0] || modeInfo.default_anchor || "";
+          modeState.initialized = true;
+          return defaultSelection;
+        }
+
+        var anchorId = modeState.anchorId || modeInfo.default_anchor || modeIds[0] || "";
+        var selection = buildSelection(anchorId, boundedCount, mode, getAppliedSettings(modeState));
+        if (!selection.length && defaultSelection.length) {
+          selection = defaultSelection;
+        }
+        if (!selection.length && anchorId) {
+          selection = [anchorId];
+        }
+
+        modeState.signature = getSelectionSignature(selection);
+        modeState.anchorId = selection[0] || anchorId;
+        modeState.initialized = true;
+        return selection;
+      }
+
+      function refreshSelection(mode, count) {
+        var modeState = getModeControlState(mode);
+        var modeIds = photoIdsByMode[mode] || [];
+        var boundedCount = Math.max(1, Math.min(count, modeIds.length));
+        modeState.appliedColor = modeState.pendingColor;
+        modeState.appliedGeometry = modeState.pendingGeometry;
+        modeState.appliedColorEnabled = modeState.pendingColorEnabled;
+        modeState.appliedGeometryEnabled = modeState.pendingGeometryEnabled;
+        modeState.shuffleSeed = createShuffleSeed(mode);
+
+        var selection = [];
+        var signature = modeState.signature;
+        var tries = 0;
+
+        while (tries < 12) {
+          var anchorId = randomAnchorId(mode);
+          selection = buildSelection(anchorId, boundedCount, mode, getAppliedSettings(modeState));
+          signature = getSelectionSignature(selection);
+
+          if (signature !== modeState.signature || modeIds.length <= boundedCount) {
+            modeState.signature = signature;
+            modeState.anchorId = selection[0] || anchorId;
+            modeState.initialized = true;
+            return selection;
+          }
+
+          tries += 1;
+        }
+
+        selection = deterministicSelectionForMode(mode, boundedCount);
+        modeState.signature = getSelectionSignature(selection);
+        modeState.anchorId = selection[0] || modeState.anchorId;
+        return selection;
+      }
+
+      function rerenderAroundAnchor(mode, count, anchorId) {
+        var modeState = getModeControlState(mode);
+        if (anchorId) {
+          modeState.anchorId = anchorId;
+        }
+        modeState.initialized = true;
+
+        var selection = buildSelection(modeState.anchorId, count, mode, getAppliedSettings(modeState));
+        if (!selection.length) {
+          selection = deterministicSelectionForMode(mode, count);
+        }
+
+        modeState.signature = getSelectionSignature(selection);
+        modeState.anchorId = selection[0] || modeState.anchorId;
+        renderGallery(count, selection);
+      }
+
+      function renderCurrentMode(count) {
+        var selection = deterministicSelectionForMode(currentMode, count);
+        renderGallery(count, selection);
+      }
+
       function applyMode(mode) {
         if (!photoIdsByMode[mode] || photoIdsByMode[mode].length === 0) {
           return;
         }
 
         currentMode = mode;
-        previousSignatureByMode[mode] = "";
         updateModeButtons();
+        syncControlInputsFromState();
 
         if (syncCountInput()) {
-          renderGallery(currentCount);
+          renderCurrentMode(currentCount);
         }
       }
 
-      divergenceInput.value = "0";
-      appliedDivergence = 0;
-      pendingDivergence = 0;
       updateModeButtons();
-      updateDivergenceState();
+      syncControlInputsFromState();
 
       if (syncCountInput()) {
         currentCount = Math.min(
@@ -507,7 +890,7 @@ page_intro: A small rotating selection from the square images in the photo archi
             : getModeMaxCount(currentMode)
         );
         countInput.value = String(currentCount);
-        renderGallery(currentCount);
+        renderCurrentMode(currentCount);
       }
 
       countInput.addEventListener("input", function() {
@@ -517,41 +900,83 @@ page_intro: A small rotating selection from the square images in the photo archi
 
         var nextCount = clampCount(countInput.value, currentCount);
         if (nextCount !== currentCount || countInput.value !== String(nextCount)) {
-          renderGallery(nextCount);
+          renderCurrentMode(nextCount);
         }
       });
 
       countInput.addEventListener("change", function() {
-        renderGallery(clampCount(countInput.value, currentCount));
+        renderCurrentMode(clampCount(countInput.value, currentCount));
       });
 
       countInput.addEventListener("blur", function() {
-        renderGallery(clampCount(countInput.value, currentCount));
+        renderCurrentMode(clampCount(countInput.value, currentCount));
       });
 
-      divergenceInput.addEventListener("input", function() {
-        pendingDivergence = clampDivergence(divergenceInput.value, pendingDivergence);
-        divergenceInput.value = String(pendingDivergence);
-        updateDivergenceState();
+      colorProximityInput.addEventListener("input", function() {
+        var modeState = getModeControlState(currentMode);
+        modeState.pendingColor = clampProximity(colorProximityInput.value, modeState.pendingColor);
+        colorProximityInput.value = String(modeState.pendingColor);
+        updateControlStateMessage();
       });
 
-      divergenceInput.addEventListener("change", function() {
-        pendingDivergence = clampDivergence(divergenceInput.value, pendingDivergence);
-        divergenceInput.value = String(pendingDivergence);
-        updateDivergenceState();
+      colorProximityInput.addEventListener("change", function() {
+        var modeState = getModeControlState(currentMode);
+        modeState.pendingColor = clampProximity(colorProximityInput.value, modeState.pendingColor);
+        colorProximityInput.value = String(modeState.pendingColor);
+        updateControlStateMessage();
+      });
+
+      geometryProximityInput.addEventListener("input", function() {
+        var modeState = getModeControlState(currentMode);
+        modeState.pendingGeometry = clampProximity(geometryProximityInput.value, modeState.pendingGeometry);
+        geometryProximityInput.value = String(modeState.pendingGeometry);
+        updateControlStateMessage();
+      });
+
+      geometryProximityInput.addEventListener("change", function() {
+        var modeState = getModeControlState(currentMode);
+        modeState.pendingGeometry = clampProximity(geometryProximityInput.value, modeState.pendingGeometry);
+        geometryProximityInput.value = String(modeState.pendingGeometry);
+        updateControlStateMessage();
+      });
+
+      colorToggleButton.addEventListener("click", function() {
+        var modeState = getModeControlState(currentMode);
+        modeState.pendingColorEnabled = !modeState.pendingColorEnabled;
+        syncControlInputsFromState();
+      });
+
+      geometryToggleButton.addEventListener("click", function() {
+        var modeState = getModeControlState(currentMode);
+        modeState.pendingGeometryEnabled = !modeState.pendingGeometryEnabled;
+        syncControlInputsFromState();
       });
 
       refreshButton.addEventListener("click", function() {
-        appliedDivergence = clampDivergence(divergenceInput.value, pendingDivergence);
-        pendingDivergence = appliedDivergence;
-        updateDivergenceState();
-        renderGallery(clampCount(countInput.value, currentCount));
+        var nextCount = clampCount(countInput.value, currentCount);
+        var selection = refreshSelection(currentMode, nextCount);
+        renderGallery(nextCount, selection);
+        syncControlInputsFromState();
       });
 
       modeButtons.forEach(function(button) {
         button.addEventListener("click", function() {
           applyMode(button.getAttribute("data-gallery-mode"));
         });
+      });
+
+      grid.addEventListener("click", function(event) {
+        var tile = event.target.closest("[data-gallery-photo]");
+        if (!tile) {
+          return;
+        }
+
+        var photoId = tile.getAttribute("data-gallery-photo");
+        if (!photoId || !photoMap.has(photoId)) {
+          return;
+        }
+
+        rerenderAroundAnchor(currentMode, currentCount, photoId);
       });
     })();
   </script>
