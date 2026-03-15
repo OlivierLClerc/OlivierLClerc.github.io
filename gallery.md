@@ -7,7 +7,7 @@ page_variant: gallery-wide
 show_page_heading: true
 page_kicker: Photography
 page_heading: Gallery
-page_intro: A small rotating selection from the square images in the photo archive.
+page_intro: This page builds a, interactive gallery from one starting image. Choose how many photos to show, decide whether the selection should stay close in color/tone and/or in shapes and composition, click Refresh to start from another image, or click any photo in the grid to build a new series from it.
 ---
 
 {% assign gallery_data = site.data.gallery_metadata %}
