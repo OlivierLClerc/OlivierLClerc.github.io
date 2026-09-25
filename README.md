@@ -10,8 +10,9 @@ This site uses GitHub Pages' native Jekyll build with a custom two-column layout
 2. Update [`publications.md`](./publications.md) for publications.
 3. Update [`teaching.md`](./teaching.md) for teaching activities.
 4. Update [`gallery.md`](./gallery.md) for the gallery page shell and controls.
-5. Add or replace square images in `photos/`, then rebuild the gallery metadata:
+5. Add or replace framed square images in `photos/Selection/`, then prepare them and rebuild the gallery metadata:
    - `python -m pip install -r requirements-gallery.txt`
+   - `python scripts/prepare_gallery_photos.py`
    - `python scripts/build_gallery_metadata.py`
 6. Update [`other-stuff.md`](./other-stuff.md) for personal projects and interests.
 7. Update [`_layouts/default.html`](./_layouts/default.html) if you want to change the sidebar links or social icons.
@@ -20,20 +21,36 @@ This site uses GitHub Pages' native Jekyll build with a custom two-column layout
 
 ## Similarity-aware gallery
 
-The gallery is static on GitHub Pages, but the photo grouping is precomputed locally:
-- [`scripts/build_gallery_metadata.py`](./scripts/build_gallery_metadata.py) extracts handcrafted visual features from every image in `photos/`
-- the script reduces those features to 2D with UMAP
-- it writes [`_data/gallery_metadata.json`](./_data/gallery_metadata.json)
-- the site then uses that JSON to build "random anchor + nearest neighbors" photo groups in the browser
+### Prepare the photo selection
 
-If you change the photos, run:
+Photos in `photos/Selection/` have a white frame. To create borderless copies at the same 2048x2048 pixel dimensions, run:
 
 ```powershell
+python scripts/prepare_gallery_photos.py
+```
+
+The script detects the shared frame width from a sample of the photos, crops it, and enlarges the cropped image back to its input dimensions. Copies are written to `photos/Selection_processed/`; the originals remain untouched. Existing processed files are skipped. Use `--overwrite` after changing source photos or the crop settings, and `--border PIXELS` if you need to override the automatic detection.
+
+The metadata builder reads only `photos/Selection_processed/`. The website loads those files from R2 when `photo_asset_origin` is set.
+
+The gallery is static on GitHub Pages, but the photo grouping is precomputed locally:
+- [`scripts/build_gallery_metadata.py`](./scripts/build_gallery_metadata.py) extracts color/tone and geometry features from every image in `photos/Selection_processed/`
+- it projects each feature space onto one display axis
+- it writes [`_data/gallery_metadata.json`](./_data/gallery_metadata.json)
+- the site uses the JSON to select photos around a starting image using the gallery controls
+
+Run the metadata builder in a Python environment with the packages in `requirements-gallery.txt`. On this computer, the existing `llm4h` Conda environment has the required packages; the base environment currently does not.
+
+If you change the original photos, run:
+
+```powershell
+conda activate llm4h
+python scripts/prepare_gallery_photos.py --overwrite
 python scripts/build_gallery_metadata.py
 python local_tools/build_umap_viewer.py
 ```
 
-Re-run the metadata builder whenever you add, remove, or replace files in `photos/`.
+If you remove or rename an original, remove its old copy from `photos/Selection_processed/` before rebuilding. The preparation script does not delete existing processed files. Archived processed photos in `photos/Selection_processed/archive/` are ignored by the metadata builder.
 
 ## External photo hosting with Cloudflare R2
 
@@ -45,43 +62,42 @@ This project now supports an optional external image origin through [`_config.ym
 photo_asset_origin: ""
 ```
 
-- leave it empty to keep using local repo images from `photos/`
+- leave it empty for a local Jekyll preview that reads photos from your local folder; `photos/` is ignored by Git
 - set it to a public Cloudflare origin such as `https://media.example.com` to load gallery images from there instead
 
 Important:
-- the metadata file stores image paths as `/photos/<filename>`
-- your Cloudflare bucket must therefore expose the files under a `photos/` prefix, not at the bucket root
-- example object key: `photos/20251206_161513.jpg`
+- the metadata file stores image paths as `/photos/Selection_processed/<filename>`
+- your Cloudflare bucket must therefore contain objects under the `photos/Selection_processed/` prefix
+- example object key: `photos/Selection_processed/1778423887065.jpg`
 
 Suggested workflow:
 1. Keep your originals locally and/or on Google Drive.
-2. Keep a local `photos/` folder with the web-ready images used for metadata extraction.
-3. Upload those web-ready images to Cloudflare R2 under the `photos/` prefix.
+2. Prepare web-ready images in `photos/Selection_processed/` and build the metadata.
+3. Upload those processed images to Cloudflare R2 under `photos/Selection_processed/`.
 4. Set `photo_asset_origin` in [`_config.yml`](./_config.yml) to your public R2 domain.
 5. Push the site code and metadata to GitHub Pages.
 
 Role of `rclone`:
-- `rclone` is the command-line tool that copies or synchronizes your local `photos/` folder with the Cloudflare R2 bucket
+- `rclone` copies or synchronizes `photos/Selection_processed/` with the matching prefix in the Cloudflare R2 bucket
 - the site itself does not upload anything; it only reads the public image URLs
 - `copy` adds or updates files on the bucket
 - `sync` makes the bucket match your local folder exactly, including deletions
 
-If you change the photo set:
+If you change the photo set, prepare the images and rebuild the metadata as above. On Windows, the upload helper reads `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ACCESS_KEY_IDS3`, and `CLOUDFLARE_SECRET_ACCESS_KEY_S3` from your ignored `.env` file. It uses `rclone` from `PATH` or the ignored `.tools/rclone/` folder. Preview the upload, then run it:
 
 ```powershell
-python scripts/build_gallery_metadata.py
-python local_tools/build_umap_viewer.py
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\upload_gallery_photos.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\upload_gallery_photos.ps1 -Execute
 ```
 
-Then update the bucket contents:
+This copies only processed photos and excludes `archive/`. Existing objects elsewhere in the bucket are left alone. If you later want to remove processed files that no longer exist locally, preview a sync before running it. `-Sync` affects only the `photos/Selection_processed/` prefix:
 
 ```powershell
-rclone sync .\photos r2:photos/photos --exclude "archive/**" --dry-run
-rclone sync .\photos r2:photos/photos --exclude "archive/**"
-
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\upload_gallery_photos.ps1 -Sync
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\upload_gallery_photos.ps1 -Sync -Execute
 ```
 
-Use `--dry-run` first to preview which files would be uploaded, replaced, or deleted without changing the bucket.
+The helper previews changes by default. Only `-Execute` changes the bucket.
 
 Then push the updated metadata/site code.
 

@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PHOTOS_DIR = ROOT / "photos"
+PHOTOS_DIR = ROOT / "photos" / "Selection_processed"
 OUTPUT_PATH = ROOT / "_data" / "gallery_metadata.json"
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 SEED = 42
@@ -288,7 +288,7 @@ def extract_features(path: Path) -> PhotoMetadata:
 
     return PhotoMetadata(
         identifier=path.name,
-        src=f"/photos/{path.name}",
+        src=f"/{path.relative_to(ROOT).as_posix()}",
         photo_mode=photo_mode,
         summary=summary,
         color_tone_vector=color_vector if photo_mode == "color" else tone_vector,
