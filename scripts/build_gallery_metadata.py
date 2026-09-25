@@ -132,10 +132,11 @@ def rgb_to_lab(rgb: np.ndarray) -> np.ndarray:
     return lab
 
 
-def determine_photo_mode(saturation: np.ndarray, channel_spread: np.ndarray) -> str:
+def determine_photo_mode(saturation: np.ndarray, channel_spread: np.ndarray, value: np.ndarray) -> str:
     mean_saturation = float(saturation.mean())
     channel_spread_p95 = float(np.quantile(channel_spread, 0.95))
-    return "bw" if mean_saturation <= 0.05 and channel_spread_p95 <= 0.08 else "color"
+    colorful_fraction = float(((channel_spread >= 0.10) & (value >= 0.10)).mean())
+    return "bw" if mean_saturation <= 0.05 and channel_spread_p95 <= 0.08 and colorful_fraction < 0.001 else "color"
 
 
 def extract_features(path: Path) -> PhotoMetadata:
@@ -207,7 +208,11 @@ def extract_features(path: Path) -> PhotoMetadata:
     perceptual_vector = dct_signature(grayscale)
     edge_vector = dct_signature(np.clip(edge_reference, 0.0, 1.0))
 
-    photo_mode = determine_photo_mode(saturation, channel_spread)
+    mode_rgb = open_rgb_array(path, size=256)
+    mode_value = mode_rgb.max(axis=2)
+    mode_spread = mode_value - mode_rgb.min(axis=2)
+    mode_saturation = np.divide(mode_spread, mode_value + 1e-6)
+    photo_mode = determine_photo_mode(mode_saturation, mode_spread, mode_value)
 
     color_vector = np.concatenate(
         [
@@ -537,7 +542,7 @@ def serialize_manifest(photos: Iterable[dict[str, object]], default_mode: str, m
             "descriptive_only": ["brightness", "contrast", "saturation"],
             "photo_modes": {
                 "color": "Default color photographs and muted-but-not-grayscale images",
-                "bw": "Strict grayscale/near-grayscale photographs tagged from saturation and channel-spread thresholds",
+                "bw": "Strict grayscale/near-grayscale photographs without concentrated colorful highlights",
             },
             "components": {
                 "color": [

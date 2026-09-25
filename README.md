@@ -29,7 +29,7 @@ Photos in `photos/Selection/` have a white frame. To create borderless copies at
 python scripts/prepare_gallery_photos.py
 ```
 
-The script detects the shared frame width from a sample of the photos, crops it, and enlarges the cropped image back to its input dimensions. Copies are written to `photos/Selection_processed/`; the originals remain untouched. Existing processed files are skipped. Use `--overwrite` after changing source photos or the crop settings, and `--border PIXELS` if you need to override the automatic detection.
+The script detects the usual frame width from a sample, then checks each photo for a confidently wider frame on opposite edges. It crops a square from all four sides and enlarges it back to the input dimensions. Copies are written to `photos/Selection_processed/`; the originals remain untouched. Existing processed files are skipped. Use `--overwrite` after changing source photos or the crop settings, `--only NAME` (repeatable) to reprocess specific photos, and `--border PIXELS` to override automatic detection.
 
 The metadata builder reads only `photos/Selection_processed/`. The website loads those files from R2 when `photo_asset_origin` is set.
 
